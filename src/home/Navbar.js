@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     AppBar, Toolbar, Typography, InputBase, Box, Button, alpha, styled,
     IconButton, Menu, MenuItem, useMediaQuery, useTheme, Badge, Snackbar, Alert
@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { getAllOrders, getOrdersByShipperId } from '../services/LaundryOrderService';
 import { connectShipperWebSocket, disconnectShipperWebSocket } from '../utils/shipperSocket';
 
+// Styled components
 const SearchWrapper = styled('div')(({ theme }) => ({
     display: 'flex',
     alignItems: 'center',
@@ -43,10 +44,10 @@ const FlashingBadge = styled(Badge)(({ theme }) => ({
     }
 }));
 
+// Navbar Component
 const Navbar = ({ onSearch }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [anchorEl, setAnchorEl] = useState(null);
-    const [menuAnchor, setMenuAnchor] = useState(null);
     const [orderCounts, setOrderCounts] = useState({ PENDING: 0, PICKED_UP: 0, IN_PROCESS: 0, PAID: 0 });
     const [flashPending, setFlashPending] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
@@ -56,48 +57,53 @@ const Navbar = ({ onSearch }) => {
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const navigate = useNavigate();
 
-    useEffect(() => {
-        const fetchOrderCounts = async () => {
-            try {
-                let orders = [];
-                if (role === 'shipper') {
-                    const shipperId = localStorage.getItem('userId');
-                    if (!shipperId) return;
-                    orders = await getOrdersByShipperId(shipperId);
-                } else if (role === 'staff' || role === 'admin') {
-                    orders = await getAllOrders();
-                }
-                const counts = { PENDING: 0, PICKED_UP: 0, IN_PROCESS: 0, PAID: 0 };
-                orders.forEach(o => {
-                    if (!o.deletedByShipper && counts.hasOwnProperty(o.status)) {
-                        counts[o.status]++;
-                    }
-                });
-                setOrderCounts(counts);
-            } catch (err) {
-                console.error('❌ Không thể tải đơn hàng:', err);
+    // Fetch order counts
+    const fetchOrderCounts = useCallback(async () => {
+        try {
+            let orders = [];
+            const shipperId = localStorage.getItem('userId');
+            if (role === 'shipper' && shipperId) {
+                orders = await getOrdersByShipperId(shipperId);
+            } else if (role === 'staff' || role === 'admin') {
+                orders = await getAllOrders();
             }
-        };
 
+            const counts = { PENDING: 0, PICKED_UP: 0, IN_PROCESS: 0, PAID: 0 };
+            orders.forEach(o => {
+                if (!o.deletedByShipper && counts[o.status]) {
+                    counts[o.status]++;
+                }
+            });
+            setOrderCounts(counts);
+        } catch (err) {
+            console.error('❌ Không thể tải đơn hàng:', err);
+        }
+    }, [role]);
+
+    // Handle WebSocket & order counts
+    useEffect(() => {
         fetchOrderCounts();
 
-        if (role === 'shipper') {
-            const shipperId = localStorage.getItem('userId');
-            if (shipperId) {
-                connectShipperWebSocket(shipperId, (message) => {
-                    setSnackbar({ open: true, message: message.message || '📦 Có đơn hàng mới!', severity: 'info' });
-                    setFlashPending(true);
-                    setTimeout(() => setFlashPending(false), 3000);
-                    fetchOrderCounts();
+        const shipperId = localStorage.getItem('userId');
+        if (role === 'shipper' && shipperId) {
+            connectShipperWebSocket(shipperId, (message) => {
+                setSnackbar({
+                    open: true,
+                    message: message.message || '📦 Có đơn hàng mới!',
+                    severity: 'info'
                 });
-            }
+                setFlashPending(true);
+                setTimeout(() => setFlashPending(false), 3000);
+                fetchOrderCounts();
+            });
         }
 
         return () => {
             if (role === 'shipper') disconnectShipperWebSocket();
         };
-    }, [role]);
+    }, [fetchOrderCounts, role]);
 
+    // Actions
     const handleSearch = () => {
         if (searchQuery.trim()) {
             onSearch?.(searchQuery);
@@ -108,10 +114,9 @@ const Navbar = ({ onSearch }) => {
     const handleClear = () => setSearchQuery('');
     const handleMenuOpen = (e) => setAnchorEl(e.currentTarget);
     const handleMenuClose = () => setAnchorEl(null);
-    const handleMainMenuOpen = (e) => setMenuAnchor(e.currentTarget);
-    const handleMainMenuClose = () => setMenuAnchor(null);
 
-    const getBadge = (label, count, color, flashing) => (
+    // Badge
+    const getBadge = (label, count, color, flashing = false) => (
         flashing ? (
             <FlashingBadge badgeContent={count} color={color} sx={{ ml: 1 }}>
                 <Typography sx={{ fontSize: '0.875rem' }}>{label}</Typography>
@@ -126,7 +131,7 @@ const Navbar = ({ onSearch }) => {
     return (
         <>
             <AppBar position="static" sx={{ backgroundColor: '#2196f3' }}>
-                <Toolbar sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Toolbar sx={{ justifyContent: 'space-between' }}>
                     <Box display="flex" alignItems="center" flex={1}>
                         <LocalLaundryServiceIcon sx={{ mr: 1 }} />
                         <Typography variant="h6" noWrap>FastLaundry</Typography>
@@ -151,7 +156,7 @@ const Navbar = ({ onSearch }) => {
                         )}
                     </Box>
 
-                    <Box display="flex" alignItems="center" justifyContent="flex-end" gap={1}>
+                    <Box display="flex" alignItems="center" gap={1}>
                         {!isMobile && (
                             <>
                                 <Button color="inherit" onClick={() => navigate('/')}>Trang chủ</Button>
@@ -183,7 +188,8 @@ const Navbar = ({ onSearch }) => {
                                     <>
                                         <Button color="inherit" onClick={() => navigate('/order-list')}>Quản lý đơn</Button>
                                         <Button color="inherit" onClick={() => navigate('/account-manager')}>Quản lý tài khoản</Button>
-                                        <Button color="inherit" onClick={()=> navigate('/categories')}>Thêm Loại Dịch Vụ</Button>
+                                        <Button color="inherit" onClick={() => navigate('/categories')}>Thêm Loại Dịch Vụ</Button>
+                                        <Button color="inherit" onClick={() => navigate('/posts')}>Đăng Bài</Button>
                                     </>
                                 )}
                                 <Button color="inherit" onClick={() => navigate('/about')}>Giới thiệu</Button>
@@ -191,7 +197,7 @@ const Navbar = ({ onSearch }) => {
                             </>
                         )}
 
-                        <IconButton size="large" edge="end" color="inherit" onClick={handleMenuOpen}>
+                        <IconButton color="inherit" onClick={handleMenuOpen}>
                             <AccountCircle />
                         </IconButton>
 
@@ -217,7 +223,7 @@ const Navbar = ({ onSearch }) => {
             <Snackbar
                 open={snackbar.open}
                 autoHideDuration={3000}
-                onClose={() => setSnackbar({ ...snackbar, open: false })}
+                onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
                 anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
             >
                 <Alert severity={snackbar.severity} variant="filled">{snackbar.message}</Alert>

@@ -26,8 +26,15 @@ import ChatList from "./components/ChatList";
 import ChatWindow from "./components/ChatWindow";
 import ChatPage from "./components/ChatPage";
 import VnpayComponent from "./vnpay/VnpayComponent";
-
 import PaymentResultPage from "./paypal/PaymentResultPage";
+import PostForm from "./post/PostForm";
+import PostList from "./post/PostList";
+import PostEdit from "./post/PostEdit";
+import PostDetail from "./post/PostDetail";
+import ProductCreate from "./product/ProductCreate";
+import ProductEdit from "./product/ProductEdit";
+import ProductList from "./product/ProductList";
+import BookingPage from "./booking/BookingPage";
 
 function App() {
     return (
@@ -48,17 +55,23 @@ function App() {
                 <Route path="/my-orders" element={<PrivateRoute><UserOrderList /></PrivateRoute>} />
                 <Route path="/shipper-orders" element={<Navigate to="/shipper-orders/pending" replace />} />
                 <Route path="/shipper-orders/:status" element={<ShipperOrderList />} />
-
+                <Route path="/admin/post" element={<PostForm/>}/>
+                <Route path="/posts/edit/:id" element={<PostEdit />} />
+                <Route path="/posts/:id" element={<PostDetail />} />
+                <Route path="/posts" element={<PostList/>}/>
                 <Route path="/payment-cancel" element={<PaymentCancel />} />
                 <Route path="/payment" element={<PayPalPaymentComponent/>}/>
                 <Route path="/payment/success" element={<PaymentSuccess />} />
-                {/*<Route path="/chat/:receiverId" element={<PrivateRoute><ChatRouteWrapper /></PrivateRoute>} />*/}
-                {/*<Route path="/chat" element={<PrivateRoute><ChatComponent /></PrivateRoute>} />*/}
                 <Route path="/ChatList" element={<ChatList/>}/>
                 <Route path="/ChatWindow" element={<ChatWindow/>}/>
                 <Route path="/Chat" element={<ChatPage/>}/>
                 <Route path="/vnpay" element={<VnpayComponent/>}/>
                <Route path="/payment-result" element={<PaymentResultPage/>}/>
+                <Route path="/creat-product" element={<ProductCreate/>}/>
+                <Route path="/creat-edit" element={<ProductEdit/>}/>
+                <Route path="/product" element={<ProductList/>}/>
+                <Route path="/bookings" element={<BookingPage />} />
+
 
             </Routes>
         </Router>
